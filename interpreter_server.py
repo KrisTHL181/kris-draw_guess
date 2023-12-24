@@ -1,7 +1,8 @@
+
 #coding: utf-8
 from fuzzywuzzy import process
 from colorama import init,Fore
-import time,logging,os,sys
+import time,logging,os
 init(autoreset=True)
 access={"server":5,"admin":4,"player":3,"spectators":2,"banned":1}
 logger = logging.getLogger(name='r')
@@ -31,39 +32,44 @@ class game:
                 if players[0][0] != "Server":
                     logging.error(f"Server offline.")
                     game.stop()
-            except TypeError as err:
-                if command != "":
-                    logging.error(f"The parameter error or command {command} does not exist.")
-                    detect=process.extractOne(command, commands.command_access.keys())
-                    if detect[1] >= 85:
-                        logging.warning(f"did you mean {detect[0]}...?")
+            except NameError as err:
+                logging.error(f"Parameter wrong. Did you forget quotes?")
+            except TypeError:
+                logging.error(f"Parameter wrong. Did you input wrong type?")
             except KeyboardInterrupt:
                 game.stop()
     def stop():
-        sys.exit(0)
+        os._exit(0)
 
 class commands:
-    command_access = {"execute": 1, "kick": 4, "stop": 5, "modify_access":5, "get_commands": 1, "clean_logs": 4, "help": 1, "list": 1, "player_access": 5} # 指令权限等级
-    alias = {"clean": "clean_log"} # 指令别名
+    command_access = {"execute": 2, "kick": 4, "stop": 5, "modify_access":5, "get_commands": 2, "clean_logs": 4, "help": 2, "list": 2, "player_access": 5, "new_alias": 3, "run_py": 5} # 指令权限等级
+    alias = {"clean": "clean_logs", "exit": "stop", "quit": "stop", "halt": "stop", "shutdown": "stop"} # 指令别名
     def execute(executer,command):
         for player in players:
             if player[0] == executer:
                 compile=command.split(" ") # 以第一个参数为主命令，空格为参数
                 try:
                     if player[1] >= commands.command_access.get(compile[0]):
-                        logging.info(f"Player {player[0]}({player[1]}) executed command {command}({commands.command_access.get(compile[0])})")
+                        logging.info(f"Player {player[0]}({player[1]}) executed command '{command}'({commands.command_access.get(compile[0])})")
                         exec(f"commands.{compile[0]}({(','.join(compile[1:]))})")
                         break
                     else:
-                        logging.warning(f"Access denied: Player {player[0]}({player[1]}) executed command {command}({commands.command_access.get(command)})") # 权限不足
+                        logging.warning(f"Access denied: Player {player[0]}({player[1]}) executed command '{command}'({commands.command_access.get(command)})") # 权限不足
                 except:
+                    if commands.command_access.get(compile[0]) == None and commands.alias.get(compile[0]) == None:
+                        if command != "":
+                            logging.error(f"The parameter error or command '{command}' does not exist.")
+                            detect=process.extractOne(command, commands.command_access.keys())
+                            if detect[1] >= 85:
+                                logging.warning(f"did you mean {detect[0]}...?")
+                        return
                     compile[0]=commands.alias.get(compile[0])
                     if player[1] >= commands.command_access.get(compile[0]):
-                        logging.info(f"Player {player[0]}({player[1]}) executed command {command}({commands.command_access.get(compile[0])})")
+                        logging.info(f"Player {player[0]}({player[1]}) executed command '{command}'({commands.command_access.get(compile[0])})")
                         exec(f"commands.{compile[0]}({(','.join(compile[1:]))})")
                         break
                     else:
-                        logging.warning(f"Access denied: Player {player[0]}({player[1]}) executed command {command}({commands.command_access.get(command)})") # 权限不足
+                        logging.warning(f"Access denied: Player {player[0]}({player[1]}) executed command '{command}'({commands.command_access.get(command)})") # 权限不足
 
     def kick(player_name):
         for player in players:
@@ -88,7 +94,7 @@ class commands:
             return
         elif new_access < 1:
             logging.error("minimum access level(1) exceeded.")
-        logging.warning(f"Modifyed {command} access to {new_access}")
+        logging.warning(f"Modifyed '{command}' access to {new_access}")
         commands.command_access[command]=new_access
 
     def get_commands():
@@ -115,16 +121,35 @@ class commands:
         else:
             if command == "get_commands":
                 print("Usage: get_commands\nReturn: None\nRaise: None\n")
+                return
             elif command == "clean_logs":
                 print("Usage: clean_logs\nReturn: None\nRaise: PermissionError(Catched)\n")
+                return
             elif command == "modify_access":
                 print("Usage: modify_access 'function' level\nReturn: None\nRaise: TypeError(When you forget to add a quote)")
+                return
             elif command == "stop":
                 print("Usage: stop delay\nReturn: None\nRaise: None")
+                return
             elif command == "kick":
                 print("Usage: kick 'player_id'\nReturn: None\nRaise: ValueError(When ID is invalid)")
+                return
             elif command == "player_access":
                 print("Usage: player_access 'player_id' 'new_access'\nReturn: None\nRaise: None")
+                return
+            elif command == "new_alias":
+                print("Usage: new_alias 'command' 'alias'\nReturn: None\nRaise: None")
+                return
+            elif command == "del_alias":
+                print("Usage: del_alias 'alias'\nReturn: None\nRaise: None")
+                return
+            elif command == "run_py":
+                print("Usage: run_py 'command'(<Space>=Space key)\nReturn: None\nRaise: Exception(When user input code is invalid)")
+                return
+            elif commands.command_access.get(command) != None:
+                print(f"Undocumented command ''{command}''.")
+            else:
+                print(f"Undefined command '{command}'.")
 
     def list():
         lists=[]
@@ -142,5 +167,27 @@ class commands:
                     logging.info(f"Player {player_[0]}'s access updated to {access_}")
                     player_[1]=new_access
                 return
+
+    def new_alias(command, alias):
+        if commands.alias.get(alias) != None or commands.command_access.get(alias) != None:
+            logging.info(f"Alias {alias} already exists.")
+        else:
+            logging.info(f"Added alias {alias} as '{command}'")
+            commands.alias[alias]=command
+
+    def del_alias(alias):
+        if commands.alias.get(alias) == None:
+            logging.info(f"{alias} not exists.")
+        else:
+            logging.info(f"Removed alias {alias}")
+            del commands.alias[alias]
+
+    def run_py(command):
+        logging.warning(f"python command '{command}' executed.")
+        try:
+            run=exec(command.replace("<Space>"," "))
+            logging.warning(f"Command execute output: {run}")
+        except Exception as e:
+            logging.warning(f"Error executing command '{command}': {e}")
 
 game.command_interpreter(">>> ")
